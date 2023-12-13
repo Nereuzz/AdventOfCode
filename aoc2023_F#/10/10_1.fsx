@@ -106,7 +106,7 @@ let ReplaceStartWithPipe (start:Pipe) graph =
 let rec FilterFest row col pipe inside =
     match pipe with
     | Ground (r,c) -> (inside, inside)
-    | Lodret (r,c) | J (r,c) | L (r,c) -> (not inside, false)
+    | L (r,c) | Lodret (r,c) | J (r,c) -> (not inside, false)
     | _ -> (inside, false)
 
 let r (pipe:Pipe) = 
