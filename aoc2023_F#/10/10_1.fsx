@@ -120,14 +120,14 @@ let r (pipe:Pipe) =
     | Ground (x,y) -> (x,y)
     | S (x,y) -> (x,y)
 
-let rec RemoveNonSurrounded graph inside finalResult =
+let rec EvenOddRule graph inside finalResult =
     match graph with
     | [] -> finalResult
     | p::xs -> let (r,c) = r p
                let (newInside, result) = FilterFest r c p inside in
                                             if result
-                                            then RemoveNonSurrounded xs newInside (p::finalResult)
-                                            else RemoveNonSurrounded xs newInside finalResult
+                                            then EvenOddRule xs newInside (p::finalResult)
+                                            else EvenOddRule xs newInside finalResult
 
 
 let day2_2 =
@@ -139,6 +139,6 @@ let day2_2 =
                       [ for y in 0 .. Array2D.length2 updatedMap - 1 -> updatedMap.[x, y] ]
                      ] 
      |> List.map (fun x -> fst x)
-    RemoveNonSurrounded hehe false [] |> List.length
+    EvenOddRule hehe false [] |> List.length
 
 printfn "Dau 10 part 2: %A" day2_2
