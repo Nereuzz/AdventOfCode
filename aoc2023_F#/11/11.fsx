@@ -81,8 +81,6 @@ let day11_1 = // There was no reason to expand the image.. Just use math.. See p
                    )
      |> List.sum
 
-(day11_1) / 2 |> printfn "Day 11 part 1: %A"
-
 let Distance emptyRowIdxs emptyCols factor  (source:int*int) (destination:int*int)=
     let addRows (distance:int64) =
         match List.countBy (fun x -> (x >= fst source && x <= fst destination) ||
@@ -107,7 +105,7 @@ let Distance emptyRowIdxs emptyCols factor  (source:int*int) (destination:int*in
     let smallDistance = int64( abs ((fst destination) - (fst source)) + abs ((snd destination) - (snd source)))
     addCols (addRows smallDistance)             
 
-let day11_2 =
+let day11_2 image =
     let emptyRows = FindEmptyRows (List.indexed image) []
                     |> List.rev
     let emptyCols = FindEmptyRows (List.indexed (List.transpose image)) []
@@ -124,3 +122,6 @@ let day11_2 =
     let fest = List.map2 LocalDistance (fst hest) (snd hest)
                |> List.sum
     fest / 2L
+
+(day11_1) / 2 |> printfn "Day 11 part 1: %d"
+day11_2 image |> printfn "day 11 part 2: %d"
