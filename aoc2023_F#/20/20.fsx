@@ -104,3 +104,63 @@ let rec PushButtonNTimes map result times =
 
 let hmm = PushButtonNTimes input {Highs=0; Lows=0} 1000
 printfn "day 20 part 1: %d" (hmm.Highs * hmm.Lows)
+
+(*
+    &sq -> rx
+
+    &fv -> sq
+    &kk -> sq
+    &vt -> sq
+    &xr -> sq
+*)
+
+let rec ResolveQueue2 (map:Map<string,Module>) result queue cycleLengthsMap cycle =
+    if Map.values cycleLengthsMap |> Seq.cast<int> |> List.ofSeq |> List.forall (fun x -> x > 0)
+    then cycleLengthsMap
+    else
+    match queue with
+    | [] -> ResolveQueue2 map result (PushButton []) cycleLengthsMap (cycle+1)
+    | x::xs -> let (s,d,p) = x
+               if d = "rx"
+               then ResolveQueue2 map result xs cycleLengthsMap cycle
+               else
+               let m = Map.find d map
+               match m.Type,p with
+               | FlipFlop state, Low -> let map' = Map.add d {m with Type=FlipFlop (not state)} map
+                                        let pulse = if state then Low else High
+                                        let queue' = AddSignalsToQueue xs d m.Destination pulse
+                                        let result' =
+                                          if state
+                                          then {result with Lows=result.Lows+(List.length m.Destination)}
+                                          else {result with Highs=result.Highs+(List.length m.Destination)}
+                                        ResolveQueue2 map' result' queue' cycleLengthsMap cycle
+               | FlipFlop _, High -> ResolveQueue2 map result xs cycleLengthsMap cycle
+
+               | Conjunction cmap, _ -> let cmap' = Map.add s p cmap
+                                        let map' = Map.add d {m with Type=Conjunction cmap'} map
+                                        let memory = cmap'.Values |> Seq.cast<Pulse> |> List.ofSeq
+                                        let result',queue' = 
+                                         if  List.forall (fun x -> match x with High -> true | Low -> false) memory
+                                         then {result with Lows = result.Lows+List.length m.Destination},AddSignalsToQueue xs d m.Destination Low
+                                         else {result with Highs = result.Highs+List.length m.Destination},AddSignalsToQueue xs d m.Destination High
+                                        let cycleLengthsMap' = 
+                                          if s = "fv" && d = "sq" && p = High && Map.find "fv" cycleLengthsMap = 0
+                                          then Map.add "fv" cycle cycleLengthsMap
+                                          else if s = "kk" && d = "sq" && p = High && Map.find "kk" cycleLengthsMap = 0
+                                               then Map.add "kk" cycle cycleLengthsMap
+                                               else if s = "vt" && d = "sq" && p = High && Map.find "vt" cycleLengthsMap = 0
+                                                    then Map.add "vt" cycle cycleLengthsMap
+                                                    else if s = "xr" && d = "sq" && p = High && Map.find "xr" cycleLengthsMap = 0
+                                                         then Map.add "xr" cycle cycleLengthsMap
+                                                         else cycleLengthsMap
+                                        ResolveQueue2 map' result' queue' cycleLengthsMap' cycle
+               | Broadcaster, _ -> let queue' = AddSignalsToQueue xs d m.Destination Low
+                                   let result' = {result with Lows=result.Lows+List.length m.Destination}
+                                   ResolveQueue2 map result' queue' cycleLengthsMap cycle
+    
+ResolveQueue2 input {Highs=0; Lows=0} (PushButton []) ([("fv",0);("kk",0);("vt",0);("xr",0)] |> Map.ofList) 1
+|> Map.values
+|> Seq.cast<int>
+|> Seq.map int64
+|> Seq.reduce (*) 
+|> printfn "Dat 20 part 2: %A"
