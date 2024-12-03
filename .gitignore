@@ -1,2 +1,3 @@
 zig-out
 .zig-cache
+aoc2024_zig/src/*/*.txt
