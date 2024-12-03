@@ -30,7 +30,7 @@ fn handleSlack(counter: u64, report: []const u8) bool {
     var rep1 = [_]u8{100} ** 50;
     var rep2 = [_]u8{100} ** 50;
     var rep3 = [_]u8{100} ** 50;
-    var split = std.mem.split(u8, report, " ");
+    var split = std.mem.splitSequence(u8, report, " ");
     var sliceNum: u8 = 0;
     var idx: u8 = 0;
     while (split.next()) |entry| {
@@ -85,7 +85,7 @@ fn isSafe(report: []const u8, withSlack: bool) bool {
     var asc = false;
     var counter: u64 = 0;
     var prevVal: i64 = -1000;
-    var split = std.mem.split(u8, report, " ");
+    var split = std.mem.splitSequence(u8, report, " ");
     var parsedNum: i64 = 0;
     while (split.next()) |num| {
         parsedNum = std.fmt.parseInt(i64, num, 10) catch undefined;
