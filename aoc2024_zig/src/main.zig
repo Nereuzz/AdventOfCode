@@ -5,6 +5,7 @@ const day2 = @import("day2/day2.zig");
 const day3 = @import("day3/day3.zig");
 const day4 = @import("day4/day4.zig");
 const day5 = @import("day5/day5.zig");
+const day6 = @import("day6/day6.zig");
 
 pub fn main() !void {
     print("Day 1:\n", .{});
@@ -22,5 +23,8 @@ pub fn main() !void {
     print("\n", .{});
 
     try day5.main();
+    print("\n", .{});
+
+    try day6.main();
     print("\n", .{});
 }
