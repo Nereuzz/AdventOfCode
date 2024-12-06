@@ -25,6 +25,7 @@ pub fn main() !void {
     try day5.main();
     print("\n", .{});
 
-    try day6.main();
-    print("\n", .{});
+    print("Day 6 commented out due to 90s brute-force - Better look back to this!\n\n", .{});
+    // try day6.main();
+    // print("\n", .{});
 }
