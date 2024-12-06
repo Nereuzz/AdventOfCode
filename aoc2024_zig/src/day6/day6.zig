@@ -6,7 +6,7 @@ pub fn main() !void {
     print("Day 6:\n", .{});
     const sol1 = try p1();
     print("Part 1: {}\n", .{sol1});
-    const sol2 = try p2();
+    const sol2 = try p22();
     print("Part 2: {}", .{sol2});
 }
 const Direction = enum { Up, Right, Down, Left };
@@ -72,6 +72,129 @@ fn p1() !u64 {
             guard.y = newY;
         } else {
             unreachable;
+        }
+    }
+    return result;
+}
+
+fn p22() !u64 {
+    var map = read_input();
+    var guard: Guard = .{ .x = 0, .y = 0, .direction = Direction.Up, .patrolling = false };
+    var result: u64 = 0;
+    var startR: u64 = 0;
+    var startC: u64 = 0;
+
+    for (map, 0..) |row, rowIdx| {
+        for (row, 0..) |col, colIdx| {
+            if (col == '^') {
+                guard.patrolling = true;
+                guard.x = @intCast(rowIdx);
+                guard.y = @intCast(colIdx);
+                map[rowIdx][colIdx] = 'X';
+                startR = rowIdx;
+                startC = colIdx;
+            }
+        }
+    }
+
+    const outOfBounds = false;
+    while (!outOfBounds) {
+        const newX = switch (guard.direction) {
+            Direction.Up => std.math.sub(u64, guard.x, 1) catch {
+                break;
+            },
+            Direction.Down => guard.x + 1,
+            else => guard.x,
+        };
+        const newY = switch (guard.direction) {
+            Direction.Left => std.math.sub(u64, guard.y, 1) catch {
+                break;
+            },
+            Direction.Right => guard.y + 1,
+            else => guard.y,
+        };
+        if (newX >= map[0..].len or newY >= map[0][0..].len) {
+            break;
+        }
+        const ahead = map[newX][newY];
+
+        if (ahead == '.') {
+            map[newX][newY] = 'X';
+            guard.x = newX;
+            guard.y = newY;
+        } else if (ahead == '#') {
+            guard.direction = switch (guard.direction) {
+                Direction.Up => Direction.Right,
+                Direction.Right => Direction.Down,
+                Direction.Down => Direction.Left,
+                Direction.Left => Direction.Up,
+            };
+        } else if (ahead == 'X') {
+            guard.x = newX;
+            guard.y = newY;
+        } else {
+            unreachable;
+        }
+    }
+
+    guard = .{ .x = 0, .y = 0, .direction = Direction.Up, .patrolling = false };
+    for (map, 0..) |row, rowIdx| {
+        for (row, 0..) |_, colIdx| {
+            if (rowIdx == startR and colIdx == startC) {
+                continue;
+            }
+            if (map[rowIdx][colIdx] != 'X') {
+                continue;
+            }
+            guard.x = startR;
+            guard.y = startC;
+            guard.direction = Direction.Up;
+            var seen = try std.BoundedArray(Visited, 10000).init(0);
+            var loop = false;
+            while (true) {
+                // print("Ahh {}\n", .{seen.slice().len});
+                for (seen.slice()) |visited| {
+                    if (std.meta.eql(visited, .{ .x = guard.x, .y = guard.y, .d = guard.direction })) {
+                        result += 1;
+                        loop = true;
+                        break;
+                    }
+                }
+                if (loop) {
+                    break;
+                }
+                try seen.append(.{ .x = guard.x, .y = guard.y, .d = guard.direction });
+
+                const newX = switch (guard.direction) {
+                    Direction.Up => std.math.sub(u64, guard.x, 1) catch {
+                        break;
+                    },
+                    Direction.Down => guard.x + 1,
+                    else => guard.x,
+                };
+                const newY = switch (guard.direction) {
+                    Direction.Left => std.math.sub(u64, guard.y, 1) catch {
+                        break;
+                    },
+                    Direction.Right => guard.y + 1,
+                    else => guard.y,
+                };
+                if (newX >= map[0..].len or newY >= map[0][0..].len) {
+                    break;
+                }
+                const ahead = map[newX][newY];
+                if (ahead == '#' or newX == rowIdx and newY == colIdx) {
+                    guard.direction = switch (guard.direction) {
+                        Direction.Up => Direction.Right,
+                        Direction.Right => Direction.Down,
+                        Direction.Down => Direction.Left,
+                        Direction.Left => Direction.Up,
+                    };
+                } else {
+                    guard.x = newX;
+                    guard.y = newY;
+                }
+            }
         }
     }
     return result;
