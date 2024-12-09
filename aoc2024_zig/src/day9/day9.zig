@@ -12,7 +12,7 @@ pub fn main() !void {
 }
 
 fn p1() !u64 {
-    var diskArray = try parseInput();
+    const diskArray = try parseInput();
     var diskSlice: []u64 = diskArray.slice();
     var blockPointer: u64 = 0;
     while (diskSlice[blockPointer] != emptyBlock) : (blockPointer += 1) {
@@ -46,7 +46,29 @@ fn p1() !u64 {
 
 fn p2() !u64 {
     const diskArray = try parseInput();
-    _ = diskArray;
+    var diskSlice: []u64 = diskArray.slice();
+    var blockPointer = 0;
+    while (diskSlice[blockPointer] != emptyBlock) : (blockPointer += 1) {
+        continue;
+    }
+    var filePointer: u64 = @intCast(disArray.slice().len -1);
+    while (blockPointer < filePointer) {
+        var blockLength = blockPointer;
+        while (diskSlice[blockPointer] != emptyBlock) : (blockPointer += 1){
+            continue;
+        }
+        blockLength = blockPointer - blockLength;
+
+        var fileLength = filePointer;
+        const fileId = diskSlaice[fileLength];
+        while (diskslice[filePointer] == fileId) : (filePointer -= 1) {
+            continue;
+        }
+        fileLength = fileLength - filePointer;
+
+        if (fileLength <= blockLength)
+    }
+
     return 0;
 }
 
