@@ -1,7 +1,6 @@
 const std = @import("std");
 const print = std.debug.print;
-const input = @embedFile("test.txt");
-const Array = @import("/Users/peter/Code/ZigArrayLib/src/root.zig");
+const input = @embedFile("input.txt");
 const emptyBlock = std.math.maxInt(u64);
 
 pub fn main() !void {
@@ -12,7 +11,7 @@ pub fn main() !void {
 }
 
 fn p1() !u64 {
-    const diskArray = try parseInput();
+    var diskArray = try parseInput();
     var diskSlice: []u64 = diskArray.slice();
     var blockPointer: u64 = 0;
     while (diskSlice[blockPointer] != emptyBlock) : (blockPointer += 1) {
@@ -44,32 +43,80 @@ fn p1() !u64 {
     return result;
 }
 
+const File = struct { id: u64, len: u64, start: u64 };
+const Block = struct { start: u64 };
+
 fn p2() !u64 {
-    const diskArray = try parseInput();
-    var diskSlice: []u64 = diskArray.slice();
-    var blockPointer = 0;
-    while (diskSlice[blockPointer] != emptyBlock) : (blockPointer += 1) {
+    var diskArray = try parseInput();
+    const diskSlice: []u64 = diskArray.slice();
+    var blockPointer: u64 = 0;
+    var filePointer: u64 = @intCast(diskArray.slice().len - 1);
+    while (true) {
+        // print("Disk at start: {any}\n", .{diskSlice});
+        const file = GetNextFile(filePointer, diskSlice);
+        if (file.id == 0) {
+            break;
+        }
+        // print("File to try: {}\n", .{file});
+        const block = GetBlockForFile(file, diskSlice);
+        // print("Block found: {any}\n", .{block});
+        if (block != null and block.?.start < file.start) {
+            filePointer = file.start;
+            blockPointer = block.?.start;
+            while (filePointer < file.start + file.len) {
+                diskSlice[blockPointer] = diskSlice[filePointer];
+                diskSlice[filePointer] = emptyBlock;
+                filePointer += 1;
+                blockPointer += 1;
+            }
+            filePointer = file.start - 1;
+        } else {
+            if (file.id == 0) {
+                break;
+            } else {
+                filePointer = file.start - 1;
+                continue;
+            }
+        }
+    }
+
+    var result: u64 = 0;
+    var sumIdx: u64 = 0;
+    while (sumIdx < diskSlice.len) : (sumIdx += 1) {
+        if (diskSlice[sumIdx] != emptyBlock) {
+            result += diskSlice[sumIdx] * sumIdx;
+        }
+    }
+    return result;
+}
+
+fn GetBlockForFile(file: File, disk: []u64) ?Block {
+    var diskIter = std.mem.window(u64, disk, file.len, 1);
+    var idx: u64 = 0;
+    while (diskIter.next()) |window| {
+        if (std.mem.allEqual(u64, window, emptyBlock)) {
+            return .{ .start = idx };
+        } else idx += 1;
+    }
+    return null;
+}
+
+fn GetNextFile(filePointer: u64, disk: []u64) File {
+    var fp = filePointer;
+    while (disk[fp] == emptyBlock) : (fp -= 1) {
         continue;
     }
-    var filePointer: u64 = @intCast(disArray.slice().len -1);
-    while (blockPointer < filePointer) {
-        var blockLength = blockPointer;
-        while (diskSlice[blockPointer] != emptyBlock) : (blockPointer += 1){
-            continue;
+    const id = disk[fp];
+    const startIdx = fp;
+    // print("fp: {}\n", .{fp});
+    while (disk[fp] == id) {
+        if (fp == 1) {
+            return .{ .id = 0, .len = 0, .start = 0 };
         }
-        blockLength = blockPointer - blockLength;
-
-        var fileLength = filePointer;
-        const fileId = diskSlaice[fileLength];
-        while (diskslice[filePointer] == fileId) : (filePointer -= 1) {
-            continue;
-        }
-        fileLength = fileLength - filePointer;
-
-        if (fileLength <= blockLength)
+        fp -= 1;
     }
 
-    return 0;
+    return .{ .id = disk[fp + 1], .len = startIdx - fp, .start = fp + 1 };
 }
 
 fn parseInput() !std.BoundedArray(u64, 100000) {
