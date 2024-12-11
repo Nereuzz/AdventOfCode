@@ -1,6 +1,6 @@
 const std = @import("std");
 const print = std.debug.print;
-const input = @embedFile("test.txt");
+const input = @embedFile("input.txt");
 
 pub fn main() !void {
     const sol1 = try p1();
@@ -10,36 +10,61 @@ pub fn main() !void {
 }
 
 fn p1() !u64 {
-    var stones = try std.BoundedArray([]u8, 100000).init(0);
+    const allocator = std.heap.page_allocator;
+    var stones = std.ArrayList([]u8).init(allocator);
+    defer stones.deinit();
     var stonesIter = std.mem.tokenizeAny(u8, input, " \n");
+
     while (stonesIter.next()) |stone| {
-        var buf = [_]u8{0} ** 100;
-        std.mem.copyForwards(u8, &buf, stone);
-        var stoneLen: u64 = 0;
-        for (buf, 0..) |char, idx| {
-            if (char == 0) {
-                stoneLen = idx;
-                break;
-            }
-        }
-        try stones.append(buf[0..stoneLen]);
+        const buf = try allocator.alloc(u8, stone.len);
+        std.mem.copyForwards(u8, buf, stone);
+        try stones.append(buf);
     }
 
-    const blinks: u64 = 1;
+    const blinks: u64 = 75;
     for (0..blinks) |i| {
-        _ = i;
-        for (stones.slice(), 0..) |stone, stoneIdx| {
-            if (rule1(stone)) {
-                print("Rule 1 applies to stone {s}\n", .{stone});
-                try stones.set(stoneIdx, 1);
-            } else if (rule2(stone)) {
-                print("Rule 2 applies to stone {s}\n", .{stone});
+        print("NEXT BLINK: {}\n", .{i + 1});
+        var stoneIdx: u64 = 0;
+        const hmm = stones.items;
+        for (hmm) |_| {
+            if (rule1(stones.items[stoneIdx])) {
+                const newStone = try allocator.alloc(u8, 1);
+                stones.items[stoneIdx] = newStone;
+                std.mem.copyForwards(u8, stones.items[stoneIdx], &[_]u8{'1'});
+            } else if (rule2(stones.items[stoneIdx])) {
+                const left = try allocator.dupe(u8, stones.items[stoneIdx][0 .. stones.items[stoneIdx].len / 2]);
+                const right = try allocator.dupe(u8, stones.items[stoneIdx][stones.items[stoneIdx].len / 2 ..]);
+                stones.items[stoneIdx] = left;
+                const parsedRight = std.fmt.parseInt(u64, right, 10) catch 1;
+                if (parsedRight == 0) {
+                    var tmp: [1]u8 = undefined;
+                    try stones.insert(stoneIdx + 1, try std.fmt.bufPrint(&tmp, "{s}", .{&[_]u8{'0'}}));
+                } else {
+                    var idx: u64 = 0;
+                    for (right, 0..) |char, idxx| {
+                        if (char == '0') {
+                            continue;
+                        }
+                        idx = idxx;
+                        break;
+                    }
+                    const komnuu = try allocator.dupe(u8, right[idx..]);
+                    try stones.insert(stoneIdx + 1, komnuu);
+                }
+                stoneIdx += 1;
             } else {
-                print("Else\n", .{});
+                const value = try std.fmt.parseInt(u64, stones.items[stoneIdx], 10);
+                var buf: [100]u8 = undefined;
+                const newValue = try std.fmt.bufPrint(&buf, "{}", .{value * 2024});
+                const newStone = try allocator.alloc(u8, newValue.len);
+                stones.items[stoneIdx] = newStone;
+                std.mem.copyForwards(u8, stones.items[stoneIdx], newValue);
             }
+            stoneIdx += 1;
+            // print("StonesAfter: {s}\n", .{stones.items});
         }
     }
-    return 0;
+    return stones.items.len;
 }
 
 fn rule1(stone: []const u8) bool {
