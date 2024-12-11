@@ -13,7 +13,16 @@ fn p1() !u64 {
     var stones = try std.BoundedArray([]u8, 100000).init(0);
     var stonesIter = std.mem.tokenizeAny(u8, input, " \n");
     while (stonesIter.next()) |stone| {
-        stones.append(stone);
+        var buf = [_]u8{0} ** 100;
+        std.mem.copyForwards(u8, &buf, stone);
+        var stoneLen: u64 = 0;
+        for (buf, 0..) |char, idx| {
+            if (char == 0) {
+                stoneLen = idx;
+                break;
+            }
+        }
+        try stones.append(buf[0..stoneLen]);
     }
 
     const blinks: u64 = 1;
