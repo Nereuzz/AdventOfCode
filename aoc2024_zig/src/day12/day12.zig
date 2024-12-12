@@ -1,6 +1,6 @@
 const std = @import("std");
 const print = std.debug.print;
-const input = @embedFile("test.txt");
+const input = @embedFile("input.txt");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -28,21 +28,48 @@ fn p1(allocator: std.mem.Allocator, grid: [][]const u8) !u64 {
     var visited = std.ArrayList(Point).init(allocator);
     defer visited.deinit();
     var regions = std.ArrayList(Region).init(allocator);
-    defer regions.deinit();
+    defer {
+        for (regions.items) |region| allocator.free(region);
+        regions.deinit();
+    }
 
     for (grid, 0..) |row, rowIdx| {
         for (row, 0..) |col, colIdx| {
-            if (std.mem.indexOf(Point, visited.items, &[_]Point{.{ .row = rowIdx, .col = colIdx, .plant = col }})) |_| {
-                continue;
-            }
-            const region = try bfs(.{ .row = rowIdx, .col = colIdx, .plant = col }, allocator, grid, &visited);
-            defer allocator.free(region);
-            print("Region: {any}\n", .{region});
+            if (std.mem.indexOf(Point,
+                                visited.items,
+                                &[_]Point{.{ .row = rowIdx, .col = colIdx, .plant = col }})) |_| continue;
+            const region = try bfs(
+                .{ .row = rowIdx, .col = colIdx, .plant = col },
+                allocator,
+                grid,
+                &visited);
             try regions.append(region);
         }
     }
 
-    return 0;
+    var result: usize = 0;
+    for (regions.items) |region| {
+        const area = region.len;
+        const perimeter = try getPerimeter(region, grid);
+        result += area * perimeter;
+    }
+
+    return result;
+}
+
+fn getPerimeter(region: []Point, grid: [][]const u8) !u64 {
+    var result: usize = 0;
+    for (region) |v| {
+        // Right
+        if (v.col + 1 == grid[0].len or v.plant != grid[v.row][v.col + 1]) result += 1;
+        // Left
+        if (v.col == 0 or v.plant != grid[v.row][v.col - 1]) result += 1;
+        // Up
+        if (v.row == 0 or v.plant != grid[v.row - 1][v.col]) result += 1;
+        // Down
+        if (v.row + 1 == grid.len or v.plant != grid[v.row + 1][v.col]) result += 1;
+    }
+    return result;
 }
 
 fn bfs(root: Point, allocator: std.mem.Allocator, grid: [][]const u8, visited: *std.ArrayList(Point)) !Region {
@@ -55,14 +82,10 @@ fn bfs(root: Point, allocator: std.mem.Allocator, grid: [][]const u8, visited: *
 
     try queue.writeItem(root);
     while (queue.readItem()) |v| {
-        if (std.mem.indexOf(Point, visited.items, &[_]Point{v})) |_| {
-            continue;
-        }
+        if (std.mem.indexOf(Point, visited.items, &[_]Point{v})) |_| continue;
+        
         try visited.append(v);
-
-        if (v.plant == root.plant) {
-            try region.append(v);
-        }
+        if (v.plant == root.plant) try region.append(v);
 
         // Right
         if (v.col + 1 < grid[0].len and v.plant == grid[v.row][v.col + 1])
