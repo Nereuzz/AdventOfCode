@@ -4,10 +4,16 @@ const input = @embedFile("input.txt");
 const mapType = std.StringHashMap(u64);
 
 pub fn main() !void {
-    const allocator = std.heap.page_allocator;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
 
     var map = mapType.init(allocator);
-    defer map.deinit();
+    defer {
+        var keys = map.keyIterator();
+        while (keys.next()) |k| allocator.free(k.*);
+        map.clearAndFree();
+    }
 
     var sol1: u64 = 0;
     var sol2: u64 = 0;
@@ -21,13 +27,14 @@ pub fn main() !void {
     print("Day 11:\nPart 1: {}\nPart 2: {}\n", .{ sol1, sol2 });
 }
 
-fn solveStone(stone: []const u8, blinks: comptime_int, map: *mapType, allocator: @TypeOf(std.heap.page_allocator)) !u64 {
+fn solveStone(stone: []const u8, blinks: comptime_int, map: *mapType, allocator: std.mem.Allocator) !u64 {
     if (blinks == 0) {
         return 1;
     }
 
-    const key = try std.fmt.allocPrint(allocator, "{}:{s}", .{ blinks, stone });
+    const key = try std.fmt.allocPrint(allocator, "{d}:{s}", .{ blinks, stone });
     if (map.get(key)) |result| {
+        allocator.free(key);
         return result;
     }
 
@@ -57,6 +64,7 @@ fn solveStone(stone: []const u8, blinks: comptime_int, map: *mapType, allocator:
     } else {
         const value = try std.fmt.parseInt(u64, stone, 10);
         const newValue = try std.fmt.allocPrint(allocator, "{}", .{value * 2024});
+        defer allocator.free(newValue);
         result = try solveStone(newValue, blinks - 1, map, allocator);
     }
 
