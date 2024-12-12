@@ -1,6 +1,6 @@
 const std = @import("std");
 const print = std.debug.print;
-const input = @embedFile("input.txt");
+const input = @embedFile("test.txt");
 
 pub fn main() !void {
     const sol1 = try p1();
@@ -21,9 +21,9 @@ fn p1() !u64 {
         try stones.append(buf);
     }
 
-    const blinks: u64 = 75;
+    const blinks: u64 = 6;
     for (0..blinks) |i| {
-        print("NEXT BLINK: {}\n", .{i + 1});
+        _ = i;
         var stoneIdx: u64 = 0;
         const hmm = stones.items;
         for (hmm) |_| {
@@ -61,10 +61,80 @@ fn p1() !u64 {
                 std.mem.copyForwards(u8, stones.items[stoneIdx], newValue);
             }
             stoneIdx += 1;
-            // print("StonesAfter: {s}\n", .{stones.items});
         }
     }
     return stones.items.len;
+}
+
+const mapType = std.StringHashMap(u64);
+fn p2() !u64 {
+    print("----- Part2 -----\n", .{});
+    const allocator = std.heap.page_allocator;
+
+    var map = mapType.init(allocator);
+    defer map.deinit();
+
+    var stones = std.ArrayList([]u8).init(allocator);
+    defer stones.deinit();
+    var stonesIter = std.mem.tokenizeAny(u8, input, " \n");
+
+    while (stonesIter.next()) |stone| {
+        const buf = try allocator.alloc(u8, stone.len);
+        std.mem.copyForwards(u8, buf, stone);
+        try stones.append(buf);
+    }
+
+    var result: u64 = 0;
+    for (stones.items) |stone| {
+        print("Checking stone {s}\n", .{stone});
+        const tmp = try solveStone(stone, 6, &map, allocator);
+        print("Solved {}\n", .{tmp});
+        result += tmp;
+    }
+    return result;
+}
+
+fn solveStone(stone: []const u8, blinks: comptime_int, map: *mapType, allocator: @TypeOf(std.heap.page_allocator)) !u64 {
+    if (blinks == 0) {
+        return 1;
+    }
+
+    if (map.get(stone)) |result| {
+        return result;
+    }
+
+    var result: u64 = 0;
+    if (rule1(stone)) {
+        result = try solveStone(&[1]u8{'1'}, blinks - 1, map, allocator);
+    } else if (rule2(stone)) {
+        const left = try allocator.dupe(u8, stone[0 .. stone.len / 2]);
+        result = try solveStone(left, blinks - 1, map, allocator);
+        const right = try allocator.dupe(u8, stone[stone.len / 2 ..]);
+        const parsedRight = std.fmt.parseInt(u64, right, 10) catch 1;
+        if (parsedRight == 0) {
+            result += try solveStone(&[1]u8{'0'}, blinks - 1, map, allocator);
+        } else {
+            var idx: u64 = 0;
+            for (right, 0..) |char, idxx| {
+                if (char == '0') {
+                    continue;
+                }
+                idx = idxx;
+                break;
+            }
+            const komnuu = try allocator.dupe(u8, right[idx..]);
+            result += try solveStone(komnuu, blinks - 1, map, allocator);
+        }
+    } else {
+        const value = try std.fmt.parseInt(u64, stone, 10);
+        var buf: [100]u8 = undefined;
+        const newValue = try std.fmt.bufPrint(&buf, "{}", .{value * 2024});
+        result = try solveStone(newValue, blinks - 1, map, allocator);
+    }
+
+    print("Putting now: {s} --- result: {}\n", .{ stone, result });
+    try map.put(stone, result);
+    return result;
 }
 
 fn rule1(stone: []const u8) bool {
@@ -74,8 +144,4 @@ fn rule1(stone: []const u8) bool {
 
 fn rule2(stone: []const u8) bool {
     return stone.len % 2 == 0;
-}
-
-fn p2() !u64 {
-    return 0;
 }
