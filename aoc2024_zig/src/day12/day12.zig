@@ -18,11 +18,11 @@ pub fn main() !void {
 
     var rowIdx: u64 = 0;
     while (iter.next()) |row| : (rowIdx += 1) {
-        var new = std.ArrayList(u64).init(allocator);
-        for (row) |plant| {
-            try new.append(@intCast(plant));
+        var new = try allocator.alloc(u64, row.len);
+        for (row, 0..) |plant, idx| {
+            new[idx] = @intCast(plant);
         }
-        try grid.insert(rowIdx, new.items);
+        try grid.insert(rowIdx, new);
     }
 
     const sol1 = try p1(allocator, grid.items);
