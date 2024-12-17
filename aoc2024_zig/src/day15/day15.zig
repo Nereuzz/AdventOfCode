@@ -1,6 +1,6 @@
 const std = @import("std");
 const print = std.debug.print;
-const input = @embedFile("test.txt");
+const input = @embedFile("input.txt");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -25,7 +25,7 @@ pub fn main() !void {
 
     var moves = std.mem.tokenizeScalar(u8, inputIter.next().?, '\n');
 
-    const sol1 = try p1(map.items, moves.next().?, allocator);
+    const sol1 = try p1(map.items, moves.rest(), allocator);
 
     print("Day 15:\nPart 1: {}\n", .{sol1});
 }
@@ -33,35 +33,52 @@ pub fn main() !void {
 fn p1(grid: [][]u8, moves: []const u8, allocator: std.mem.Allocator) !u64 {
     _ = allocator;
 
-    var cur_pos: Point = GetStartPosition(grid);
+    var curPos: Point = GetStartPosition(grid);
     for (moves) |move| {
-        for (grid) |row| {
-            print("{s}\n", .{row});
-        }
-
-        const targetPos: Point = GetNextPosition(move, cur_pos);
-        const next = grid[targetPos.row][targetPos.col];
-        print("{c} -- {c}\n", .{ move, next });
+        if (move == '\n') continue;
+        const nextPos: Point = GetPosition(move, curPos, 1);
+        const next = grid[nextPos.row][nextPos.col];
+        // print("{c} -- {c}\n", .{ move, next });
         if (next == '.') {
-            grid[cur_pos.row][cur_pos.col] = '.';
-            grid[targetPos.row][targetPos.col] = '@';
-            cur_pos = targetPos;
+            grid[curPos.row][curPos.col] = '.';
+            grid[nextPos.row][nextPos.col] = '@';
+            curPos = nextPos;
         }
         if (next == '#') {
             continue;
         }
         if (next == 'O') {
-            if (gotSpace(grid, targetPos, move, 1)) |spaces| {} else continue;
+            if (gotSpace(grid, nextPos, move, 1)) |stones| {
+                var stoneIter: u64 = stones;
+                // print("stoneIter: {}\n", .{stoneIter});
+                while (stoneIter > 0) {
+                    const stonePos = GetPosition(move, curPos, stoneIter + 1);
+                    // print("{any}\n", .{stonePos});
+                    grid[stonePos.row][stonePos.col] = 'O';
+                    stoneIter -= 1;
+                }
+                grid[curPos.row][curPos.col] = '.';
+                grid[nextPos.row][nextPos.col] = '@';
+                curPos = nextPos;
+            }
+        } else continue;
+    }
+
+    var result: u64 = 0;
+
+    for (grid, 0..) |row, rowIdx| {
+        for (row, 0..) |col, colIdx| {
+            if (col == 'O') {
+                result += 100 * rowIdx + colIdx;
+            }
         }
     }
 
-    print("\n", .{});
-
-    return 0;
+    return result;
 }
 
 fn gotSpace(grid: [][]u8, pos: Point, direction: u8, spaces: u64) ?u64 {
-    const nextPos = GetNextPosition(direction, pos);
+    const nextPos = GetPosition(direction, pos, 1);
     const next = grid[nextPos.row][nextPos.col];
     if (next == '.') return spaces;
     if (next == 'O') return gotSpace(grid, nextPos, direction, spaces + 1);
@@ -69,12 +86,12 @@ fn gotSpace(grid: [][]u8, pos: Point, direction: u8, spaces: u64) ?u64 {
     unreachable;
 }
 
-fn GetNextPosition(direction: u8, cur_pos: Point) Point {
+fn GetPosition(direction: u8, curPos: Point, n: usize) Point {
     return switch (direction) {
-        '^' => .{ .row = cur_pos.row - 1, .col = cur_pos.col },
-        '>' => .{ .row = cur_pos.row, .col = cur_pos.col + 1 },
-        'v' => .{ .row = cur_pos.row + 1, .col = cur_pos.col },
-        '<' => .{ .row = cur_pos.row, .col = cur_pos.col - 1 },
+        '^' => .{ .row = curPos.row - n, .col = curPos.col },
+        '>' => .{ .row = curPos.row, .col = curPos.col + n },
+        'v' => .{ .row = curPos.row + n, .col = curPos.col },
+        '<' => .{ .row = curPos.row, .col = curPos.col - n },
         else => undefined,
     };
 }
