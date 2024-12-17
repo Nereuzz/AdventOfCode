@@ -1,7 +1,6 @@
 const std = @import("std");
 const print = std.debug.print;
-const input = @embedFile("test.txt");
-
+const input = @embedFile("input.txt");
 const Point = struct { row: u64, col: u64 };
 const Direction = enum { Up, Right, Down, Left };
 
@@ -24,7 +23,6 @@ pub fn main() !void {
 
     var mapIter = std.mem.splitAny(u8, mapData, "\n");
     while (mapIter.next()) |line| {
-        // print("{s}\n", .{line});
         const row = try allocator.dupe(u8, line);
         const row2 = try allocator.dupe(u8, line);
         try map.append(row);
@@ -37,52 +35,6 @@ pub fn main() !void {
     const sol2 = try p2(map2.items, moves.rest(), allocator);
 
     print("Day 15:\nPart 1: {}\nPart 2: {}\n", .{ sol1, sol2 });
-}
-
-fn p2(inGrid: [][]u8, moves: []const u8, allocator: std.mem.Allocator) !u64 {
-    for (inGrid) |row| print("{s}\n", .{row});
-    var bigGrid = std.ArrayList([]u8).init(allocator);
-    defer {
-        for (bigGrid.items) |row| allocator.free(row);
-        bigGrid.clearAndFree();
-    }
-
-    try expandGrid(inGrid, &bigGrid, allocator);
-    const grid = bigGrid.items;
-
-    var curPos: Point = GetStartPosition(grid);
-
-    for (moves) |move| {
-        if (move == '\n') continue;
-
-        for (grid) |row| print("{s}\n", .{row});
-        const nextPos: Point = GetPosition(move, curPos, 1);
-        const next = grid[nextPos.row][nextPos.col];
-
-        print("{c} --- {},{} --- {c}\n", .{ move, curPos.row, curPos.col, next });
-
-        switch (next) {
-            '#' => continue,
-            '.' => {
-                grid[curPos.row][curPos.col] = '.';
-                grid[nextPos.row][nextPos.col] = '@';
-                curPos = nextPos;
-            },
-            ']' => {
-                if (gotSpace(grid, nextPos, move, 1)) |boxes| {
-                    MoveBox(grid, move);
-                    grid[curPos.row][curPos.col] = '.';
-                    grid[nextPos.row][nextPos.col] = '@';
-                    curPos = nextPos;
-                } else continue;
-            },
-            else => {
-                unreachable;
-            },
-        }
-    }
-
-    return 0;
 }
 
 fn p1(grid: [][]u8, moves: []const u8, allocator: std.mem.Allocator) !u64 {
@@ -104,10 +56,8 @@ fn p1(grid: [][]u8, moves: []const u8, allocator: std.mem.Allocator) !u64 {
             'O' => {
                 if (gotSpace(grid, nextPos, move, 1)) |stones| {
                     var stoneIter: u64 = stones;
-                    // print("stoneIter: {}\n", .{stoneIter});
                     while (stoneIter > 0) {
                         const stonePos = GetPosition(move, curPos, stoneIter + 1);
-                        // print("{any}\n", .{stonePos});
                         grid[stonePos.row][stonePos.col] = 'O';
                         stoneIter -= 1;
                     }
@@ -133,22 +83,61 @@ fn p1(grid: [][]u8, moves: []const u8, allocator: std.mem.Allocator) !u64 {
     return result;
 }
 
+fn p2(inGrid: [][]u8, moves: []const u8, allocator: std.mem.Allocator) !u64 {
+    var bigGrid = std.ArrayList([]u8).init(allocator);
+    defer bigGrid.deinit(); // Leak
+
+    try expandGrid(inGrid, &bigGrid, allocator);
+    const grid = bigGrid.items;
+
+    var curPos: Point = GetStartPosition(grid);
+
+    for (moves) |move| {
+        if (move == '\n') continue;
+
+        const nextPos: Point = GetPosition(move, curPos, 1);
+        const next = grid[nextPos.row][nextPos.col];
+
+        switch (next) {
+            '#' => continue,
+            '.' => {
+                grid[curPos.row][curPos.col] = '.';
+                grid[nextPos.row][nextPos.col] = '@';
+                curPos = nextPos;
+            },
+            ']', '[' => {
+                if (try MoveBox(grid, nextPos, next, move, true)) {
+                    grid[curPos.row][curPos.col] = '.';
+                    grid[nextPos.row][nextPos.col] = '@';
+                    curPos = nextPos;
+                } else continue;
+            },
+            else => {
+                unreachable;
+            },
+        }
+    }
+
+    var result: u64 = 0;
+    for (grid, 0..) |row, rowIdx| {
+        for (row, 0..) |col, colIdx| {
+            if (col == '[') {
+                result += 100 * rowIdx + colIdx;
+            }
+        }
+    }
+
+    return result;
+}
+
 fn gotSpace(grid: [][]u8, pos: Point, direction: u8, spaces: u64) ?u64 {
-    // const currentBoxPiece = grid[pos.row][pos.col];
     const nextPos = GetPosition(direction, pos, 1);
     const next = grid[nextPos.row][nextPos.col];
-    print("next in gotSpace: {c}\n", .{next});
 
     switch (next) {
         '.' => return spaces,
-        'O' => return gotSpace(grid, nextPos, direction, spaces + 1),
+        'O', '[', ']' => return gotSpace(grid, nextPos, direction, spaces + 1),
         '#' => return null,
-        '[' => switch (direction) {
-            '^' => return gotSpace(grid, nextPos, direction, spaces + 3),
-            'v' => return gotSpace(grid, nextPos, direction, spaces + 3),
-            else => return gotSpace(grid, nextPos, direction, spaces + 1),
-        },
-        ']' => return gotSpace(grid, nextPos, direction, spaces + 1),
         else => unreachable,
     }
 }
@@ -169,6 +158,94 @@ fn GetStartPosition(grid: [][]u8) Point {
             return .{ .row = rowIdx, .col = col };
         }
     }
+    unreachable;
+}
+
+fn mov(grid: [][]u8, oldLeft: Point, oldRight: Point, newLeft: Point, newRight: Point) void {
+    grid[oldLeft.row][oldLeft.col] = '.';
+    grid[oldRight.row][oldRight.col] = '.';
+    grid[newLeft.row][newLeft.col] = '[';
+    grid[newRight.row][newRight.col] = ']';
+}
+
+fn MoveBox(grid: [][]u8, boxPos: Point, boxPart: u8, direction: u8, withMov: bool) !bool {
+    var posRight: Point = undefined;
+    var posLeft: Point = undefined;
+
+    if (boxPart == '[') {
+        posLeft = boxPos;
+        posRight = .{ .row = boxPos.row, .col = boxPos.col + 1 };
+    } else {
+        posRight = boxPos;
+        posLeft = .{ .row = boxPos.row, .col = boxPos.col - 1 };
+    }
+
+    const newPosLeft = GetPosition(direction, posLeft, 1);
+    const newPosRight = GetPosition(direction, posRight, 1);
+    const nextLeft = grid[newPosLeft.row][newPosLeft.col];
+    const nextRight = grid[newPosLeft.row][newPosRight.col];
+
+    if (nextLeft == '#' or nextRight == '#') return false;
+
+    if (nextLeft == ']' and nextRight == '[' and (direction == '^' or direction == 'v')) {
+        if (try MoveBox(grid, newPosRight, nextRight, direction, false) and
+            try MoveBox(grid, newPosLeft, nextLeft, direction, false))
+        {
+            _ = try MoveBox(grid, newPosRight, nextRight, direction, withMov);
+            _ = try MoveBox(grid, newPosLeft, nextLeft, direction, withMov);
+            if (withMov) mov(grid, posLeft, posRight, newPosLeft, newPosRight);
+            return true;
+        } else return false;
+    }
+    if (nextLeft == '[' and nextRight == ']' and (direction == '^' or direction == 'v')) {
+        if (try MoveBox(grid, newPosLeft, nextLeft, direction, false)) {
+            _ = try MoveBox(grid, newPosLeft, nextLeft, direction, withMov);
+            if (withMov) mov(grid, posLeft, posRight, newPosLeft, newPosRight);
+            return true;
+        } else return false;
+    }
+    if (nextRight == '[' and (direction == '^' or direction == 'v')) {
+        if (try MoveBox(grid, newPosRight, nextRight, direction, false)) {
+            _ = try MoveBox(grid, newPosRight, nextRight, direction, withMov);
+            if (withMov) mov(grid, posLeft, posRight, newPosLeft, newPosRight);
+            return true;
+        } else return false;
+    }
+    if (nextLeft == ']' and (direction == '^' or direction == 'v')) {
+        if (try MoveBox(grid, newPosLeft, nextLeft, direction, false)) {
+            _ = try MoveBox(grid, newPosLeft, nextLeft, direction, withMov);
+            if (withMov) mov(grid, posLeft, posRight, newPosLeft, newPosRight);
+            return true;
+        } else return false;
+    }
+    if (nextLeft == '.' and direction == '<') {
+        if (withMov) mov(grid, posLeft, posRight, newPosLeft, newPosRight);
+        return true;
+    }
+    if (nextRight == '.' and direction == '>') {
+        if (withMov) mov(grid, posLeft, posRight, newPosLeft, newPosRight);
+        return true;
+    }
+    if (nextLeft == ']' and direction == '<') {
+        if (try MoveBox(grid, newPosLeft, nextLeft, direction, false)) {
+            _ = try MoveBox(grid, newPosLeft, nextLeft, direction, withMov);
+            if (withMov) mov(grid, posLeft, posRight, newPosLeft, newPosRight);
+            return true;
+        } else return false;
+    }
+    if (nextRight == '[' and direction == '>') {
+        if (try MoveBox(grid, newPosRight, nextRight, direction, false)) {
+            _ = try MoveBox(grid, newPosRight, nextRight, direction, withMov);
+            if (withMov) mov(grid, posLeft, posRight, newPosLeft, newPosRight);
+            return true;
+        } else return false;
+    }
+
+    if (nextLeft == '.' and nextRight == '.' and (direction == '^' or direction == 'v')) {
+        if (withMov) mov(grid, posLeft, posRight, newPosLeft, newPosRight);
+        return true;
+    }
+
     unreachable;
 }
 
