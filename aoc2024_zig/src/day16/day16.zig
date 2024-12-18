@@ -1,7 +1,7 @@
 const std = @import("std");
 const print = std.debug.print;
 const input = @embedFile("test.txt");
-const Point = struct { row: u64, col: u64, d: u64, n: []u8, v:u8 };
+const Point = struct { row: u64, col: u64, d: u64, n: []u8 };
 const Direction = enum { Up, Right, Down, Left };
 
 pub fn main() !void {
@@ -9,25 +9,16 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    var grid = std.ArrayList([]Point).init(allocator);
+    var grid = std.ArrayList([]u8).init(allocator);
     defer {
-        for (grid.items) |row| {
-            for (row) |p| allocator.free(p);
-            allocator.free(row);
-        }
+        for (grid.items) |row| allocator.free(row);
         grid.clearAndFree();
     }
 
     var linesIter = std.mem.splitScalar(u8, input, '\n');
-    while (linesIter.next(), 0..) |line, rowIdx| {
-        const row = try allocator.allocate(u8, line.len);
-        for (line, 0..) |c,colIdx| {
-            var point: Point = undefined;
-            switch {c} {
-                '.' => {
-                }
-            }
-        }
+    while (linesIter.next()) |line| {
+        const row = try allocator.dupe(u8, line);
+        try grid.append(row);
     }
 
     for (grid.items) |row| {
@@ -40,6 +31,12 @@ pub fn main() !void {
 }
 
 fn p1(grid: [][]u8, allocator: std.mem.Allocator) !u64 {
+    var tree = std.ArrayList(Point).init(allocator);
+    defer {
+        for (tree.items) |p| allocator.free(p.n);
+        tree.clearAndFree();
+    }
+
     for (grid, 0..) |row, rowIdx| {
         for (row, 0..) |col, colIdx| {}
     }
