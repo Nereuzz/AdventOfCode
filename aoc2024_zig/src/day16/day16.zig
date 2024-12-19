@@ -33,6 +33,7 @@ const Point = struct {
     col: u64,
     v: u8,
     direction: Direction,
+    fromDir: ?Direction = null,
 
     fn getCoord(self: Point) [2]u64 {
         return [2]u64{ self.row, self.col };
@@ -45,7 +46,7 @@ const Deer = struct {
     dir: Direction,
 };
 
-const Direction = enum { Up, Right, Down, Left };
+const Direction = enum { Up, Right, Down, Left, Unknown };
 fn p1(grid: [][]u8, allocator: std.mem.Allocator) !u64 {
     var tree = std.ArrayList(Point).init(allocator);
     defer tree.deinit();
@@ -57,64 +58,96 @@ fn p1(grid: [][]u8, allocator: std.mem.Allocator) !u64 {
             point.row = rowIdx;
             point.col = colIdx;
             point.v = col;
+            point.direction = Direction.Unknown;
+            point.fromDir = Direction.Unknown;
             if (col == 'S') point.direction = Direction.Right;
             try tree.append(point);
         }
     }
 
-    const source: Point = .{ .row = 13, .col = 1, .v = 'S', .direction = Direction.Right };
+    const source: Point = .{ .row = grid.len - 2, .col = 1, .v = 'S', .direction = Direction.Right, .fromDir = Direction.Unknown };
     return Dijkstra(grid, &tree, source, allocator);
 }
-const distancesType = std.AutoHashMap([2]u64, u64);
+const Distance = struct { dist: u64, dir: Direction };
+const distancesType = std.AutoHashMap([2]u64, Distance);
 fn Dijkstra(grid: [][]u8, tree: *std.ArrayList(Point), source: Point, allocator: std.mem.Allocator) !u64 {
     var distances = distancesType.init(allocator);
     defer distances.deinit();
 
     for (tree.items) |p| {
-        try distances.put(p.getCoord(), std.math.maxInt(u64));
+        const dist: Distance = .{ .dist = std.math.maxInt(u64), .dir = Direction.Unknown };
+        try distances.put(p.getCoord(), dist);
     }
-    try distances.put(source.getCoord(), 0);
+    try distances.put(source.getCoord(), .{ .dist = 0, .dir = Direction.Right });
 
     while (tree.items.len > 0) {
+        // for (grid) |row| {
+        //     print("{s}\n", .{row});
+        // }
+        // print("\n\n", .{});
         const uIdx = GetNextVertex(tree, distances);
         const u: Point = tree.orderedRemove(uIdx);
+        if (u.v == 'E') continue;
 
         var neighbours = [_]Point{undefined} ** 4;
-        const up: Point = .{ .row = u.row - 1, .col = u.col, .v = grid[u.row - 1][u.col], .direction = undefined };
-        const down: Point = .{ .row = u.row + 1, .col = u.col, .v = grid[u.row + 1][u.col], .direction = undefined };
-        const left: Point = .{ .row = u.row, .col = u.col - 1, .v = grid[u.row][u.col - 1], .direction = undefined };
-        const right: Point = .{ .row = u.row, .col = u.col + 1, .v = grid[u.row][u.col + 1], .direction = undefined };
+        const up: Point = .{ .row = u.row - 1, .col = u.col, .v = grid[u.row - 1][u.col], .direction = Direction.Up };
+        const down: Point = .{ .row = u.row + 1, .col = u.col, .v = grid[u.row + 1][u.col], .direction = Direction.Down };
+        const left: Point = .{ .row = u.row, .col = u.col - 1, .v = grid[u.row][u.col - 1], .direction = Direction.Left };
+        const right: Point = .{ .row = u.row, .col = u.col + 1, .v = grid[u.row][u.col + 1], .direction = Direction.Right };
         neighbours[0] = up;
         neighbours[2] = down;
         neighbours[3] = left;
         neighbours[1] = right;
 
-        for (neighbours, 0..) |v, dir| {
-            if (v.v == '#') continue;
-            const d: Direction = @enumFromInt(dir);
-            const newDist = distances.get(u.getCoord()).? + CostToV(u, d);
-            if (newDist < distances.get(v.getCoord()).?) {
-                try distances.put(v.getCoord(), newDist);
+        // print("Checking neighbours for u = {}\n", .{u});
+        for (neighbours) |v| {
+            if (v.v == '#' or (u.fromDir == GetOppositeDirection(v.direction))) continue;
+            // print("Checking for            v = {}\n", .{v});
+            const costToV = CostToV(u, v, distances);
+            const newDist = distances.get(u.getCoord()).?.dist + costToV;
+            if (newDist <= distances.get(v.getCoord()).?.dist) {
+                const dist: Distance = .{ .dist = newDist, .dir = v.direction };
+                tree.items[GetVertexIdx(tree, v)].direction = v.direction;
+                tree.items[GetVertexIdx(tree, v)].fromDir = v.direction;
+                try distances.put(v.getCoord(), dist);
             }
         }
     }
+    print("\n\n", .{});
 
-    return distances.get([2]u64{ 1, 13 }).?;
+    return distances.get([2]u64{ 1, grid[0].len - 2 }).?.dist;
+}
+
+fn GetOppositeDirection(d: Direction) Direction {
+    return switch (d) {
+        Direction.Up => Direction.Down,
+        Direction.Down => Direction.Up,
+        Direction.Left => Direction.Right,
+        Direction.Right => Direction.Left,
+        else => unreachable,
+    };
 }
 
 fn GetNextVertex(tree: *std.ArrayList(Point), distances: distancesType) u64 {
     var min: u64 = 0;
     for (tree.items, 0..) |u, idx| {
-        const dist = distances.get(u.getCoord()).?;
-        if (dist < distances.get(tree.items[min].getCoord()).?) {
+        const dist = distances.get(u.getCoord()).?.dist;
+        if (dist < distances.get(tree.items[min].getCoord()).?.dist) {
             min = idx;
         }
     }
     return min;
 }
 
-fn CostToV(source: Point, direction: Direction) u64 {
-    print("source direction: {any} --- direction: {any}\n", .{ source.direction, direction });
-    if (source.direction == direction) return 1;
+fn GetVertexIdx(tree: *std.ArrayList(Point), u: Point) u64 {
+    for (tree.items, 0..) |v, idx| {
+        if (std.mem.eql(u64, &v.getCoord(), &u.getCoord())) return idx;
+    }
+    return std.math.maxInt(u64);
+}
+
+fn CostToV(u: Point, v: Point, distances: distancesType) u64 {
+    _ = distances;
+    if (u.direction == v.direction) return 1;
     return 1001;
 }
