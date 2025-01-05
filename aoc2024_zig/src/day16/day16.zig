@@ -38,15 +38,19 @@ const Point = struct {
     fn getCoord(self: Point) [2]u64 {
         return [2]u64{ self.row, self.col };
     }
+
+    fn getCoordAndDir(self: Point) [3]u64 {
+        const dir = @intFromEnum(self.direction);
+        return [3]u64{ self.row, self.col, dir };
+    }
 };
 
-const Deer = struct {
-    row: u64,
-    col: u64,
-    dir: Direction,
+const Direction = enum {
+    Up,
+    Right,
+    Down,
+    Left,
 };
-
-const Direction = enum { Up, Right, Down, Left, Unknown };
 fn p1(grid: [][]u8, allocator: std.mem.Allocator) !u64 {
     var tree = std.ArrayList(Point).init(allocator);
     defer tree.deinit();
@@ -58,8 +62,6 @@ fn p1(grid: [][]u8, allocator: std.mem.Allocator) !u64 {
             point.row = rowIdx;
             point.col = colIdx;
             point.v = col;
-            point.direction = Direction.Unknown;
-            point.fromDir = Direction.Unknown;
             if (col == 'S') point.direction = Direction.Right;
             try tree.append(point);
         }
@@ -70,13 +72,12 @@ fn p1(grid: [][]u8, allocator: std.mem.Allocator) !u64 {
         .col = 1,
         .v = 'S',
         .direction = Direction.Right,
-        .fromDir = Direction.Unknown,
     };
     return Dijkstra(grid, &tree, source, allocator);
 }
 
-const distancesType = std.AutoHashMap([2]u64, u64);
-const prevsType = std.AutoHashMap([2]u64, std.ArrayList(Point));
+const distancesType = std.AutoHashMap([3]u64, u64);
+const prevsType = std.AutoHashMap([3]u64, std.ArrayList(Point));
 fn Dijkstra(grid: [][]u8, tree: *std.ArrayList(Point), source: Point, allocator: std.mem.Allocator) !u64 {
     var distances = distancesType.init(allocator);
     var prevs = prevsType.init(allocator);
@@ -93,9 +94,20 @@ fn Dijkstra(grid: [][]u8, tree: *std.ArrayList(Point), source: Point, allocator:
     }
 
     for (tree.items) |p| {
-        try distances.put(p.getCoord(), std.math.maxInt(u64) - 20000);
+        for (0..4) |dir| {
+            const d: Direction = @enumFromInt(dir);
+            const key = p.getCoord() ++ [1]u8{@intFromEnum(d)};
+            // print("Adding key: {any} ----- \n", .{key});
+            try distances.put(key, std.math.maxInt(u64) - 20000);
+        }
     }
-    try distances.put(source.getCoord(), 0);
+    for (0..4) |dir| {
+        const d: Direction = @enumFromInt(dir);
+        const key = source.getCoord() ++ [1]u8{@intFromEnum(d)};
+        // print("Adding key: {any}\n", .{key});
+        try distances.put(key, 0);
+    }
+    // try distances.put(source.getCoordAndDir(), 0);
 
     while (tree.items.len > 0) {
         // for (grid, 0..) |row, idx| {
@@ -107,10 +119,30 @@ fn Dijkstra(grid: [][]u8, tree: *std.ArrayList(Point), source: Point, allocator:
         if (u.v == 'E') continue;
 
         var neighbours = [_]Point{undefined} ** 4;
-        const up: Point = .{ .row = u.row - 1, .col = u.col, .v = grid[u.row - 1][u.col], .direction = Direction.Up };
-        const down: Point = .{ .row = u.row + 1, .col = u.col, .v = grid[u.row + 1][u.col], .direction = Direction.Down };
-        const left: Point = .{ .row = u.row, .col = u.col - 1, .v = grid[u.row][u.col - 1], .direction = Direction.Left };
-        const right: Point = .{ .row = u.row, .col = u.col + 1, .v = grid[u.row][u.col + 1], .direction = Direction.Right };
+        const up: Point = .{
+            .row = u.row - 1,
+            .col = u.col,
+            .v = grid[u.row - 1][u.col],
+            .direction = Direction.Up,
+        };
+        const down: Point = .{
+            .row = u.row + 1,
+            .col = u.col,
+            .v = grid[u.row + 1][u.col],
+            .direction = Direction.Down,
+        };
+        const left: Point = .{
+            .row = u.row,
+            .col = u.col - 1,
+            .v = grid[u.row][u.col - 1],
+            .direction = Direction.Left,
+        };
+        const right: Point = .{
+            .row = u.row,
+            .col = u.col + 1,
+            .v = grid[u.row][u.col + 1],
+            .direction = Direction.Right,
+        };
         neighbours[0] = up;
         neighbours[2] = down;
         neighbours[3] = left;
@@ -119,31 +151,39 @@ fn Dijkstra(grid: [][]u8, tree: *std.ArrayList(Point), source: Point, allocator:
         for (neighbours) |v| {
             if (v.v == '#' or (u.fromDir == GetOppositeDirection(v.direction))) continue;
             const costToV = CostToV(u, v, distances);
-            const oldDist = distances.get(v.getCoord()).?;
-            const newDist = distances.get(u.getCoord()).? + costToV;
+            const oldDist = distances.get(v.getCoordAndDir()).?;
+            const newDist = distances.get(u.getCoordAndDir()).? + costToV;
             if (newDist <= oldDist) {
                 var future = &tree.items[GetVertexIdx(tree, v)];
-                const hmm = try prevs.getOrPut(future.getCoord());
+                const hmm = try prevs.getOrPut(future.getCoordAndDir());
                 if (hmm.found_existing) {
                     try hmm.value_ptr.*.append(u);
                 } else {
                     var p = std.ArrayList(Point).init(allocator);
                     try p.append(u);
-                    try prevs.put(future.getCoord(), p);
+                    try prevs.put(future.getCoordAndDir(), p);
                 }
                 future.direction = v.direction;
                 future.fromDir = v.direction;
-                try distances.put(v.getCoord(), newDist);
+                try distances.put(v.getCoordAndDir(), newDist);
                 grid[v.row][v.col] = '@';
-                if (v.v == 'E') return distances.get([2]u64{ 1, grid[0].len - 2 }).?;
+                // if (v.v == 'E') return distances.get([2]u64{ 1, grid[0].len - 2 }).?;
             }
         }
     }
     print("\n\n", .{});
 
-    print("E prevs: {any}\n", .{prevs.get([2]u64{ 9, 2 }).?.items});
+    // print("E prevs: {any}\n", .{prevs.get([3]u64{ 7, 5, 3 }).?.items});
 
-    return distances.get([2]u64{ 1, grid[0].len - 2 }).?;
+    var hest = [4]u64{
+        distances.get([3]u64{ 1, grid[0].len - 2, 0 }).?,
+        distances.get([3]u64{ 1, grid[0].len - 2, 1 }).?,
+        distances.get([3]u64{ 1, grid[0].len - 2, 2 }).?,
+        distances.get([3]u64{ 1, grid[0].len - 2, 3 }).?,
+    };
+    std.mem.sort(u64, &hest, {}, std.sort.asc(u64));
+
+    return hest[0];
 }
 
 fn GetOppositeDirection(d: Direction) Direction {
@@ -152,15 +192,15 @@ fn GetOppositeDirection(d: Direction) Direction {
         Direction.Down => Direction.Up,
         Direction.Left => Direction.Right,
         Direction.Right => Direction.Left,
-        else => unreachable,
     };
 }
 
 fn GetNextVertex(tree: *std.ArrayList(Point), distances: distancesType) u64 {
     var min: u64 = 0;
     for (tree.items, 0..) |u, idx| {
-        const dist = distances.get(u.getCoord()).?;
-        if (dist < distances.get(tree.items[min].getCoord()).?) {
+        const dist = distances.get(u.getCoordAndDir()).?;
+
+        if (dist < distances.get(tree.items[min].getCoordAndDir()).?) {
             min = idx;
         }
     }
@@ -169,7 +209,7 @@ fn GetNextVertex(tree: *std.ArrayList(Point), distances: distancesType) u64 {
 
 fn GetVertexIdx(tree: *std.ArrayList(Point), u: Point) u64 {
     for (tree.items, 0..) |v, idx| {
-        if (std.mem.eql(u64, &v.getCoord(), &u.getCoord())) return idx;
+        if (std.mem.eql(u64, &v.getCoordAndDir(), &u.getCoordAndDir())) return idx;
     }
     return std.math.maxInt(u64);
 }
