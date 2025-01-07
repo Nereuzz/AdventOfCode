@@ -1,6 +1,6 @@
 const std = @import("std");
 const print = std.debug.print;
-const input = @embedFile("test.txt");
+const input = @embedFile("input.txt");
 
 const Towel = []u8;
 const Design = []u8;
@@ -40,33 +40,23 @@ fn p1(towels: []Towel, designs: []Design) !u64 {
     var result: u64 = 0;
     std.mem.sort(Towel, towels, {}, sortTowels);
     for (designs) |design| {
-        print("\nDESIGN: {s}\n", .{design});
-        var curLen: u64 = 0;
-        while (curLen < design.len) {
-            const nextLen: u64 = FindNextTowel(design[curLen..], towels);
-            if (nextLen == 0) break else curLen += nextLen;
-        }
-        if (curLen == design.len) {
-            print("FOUND TOWELS!\n", .{});
-            result += 1;
-        }
-        // print("Unable to build: {s}\n", .{design});
+        if (MakeDesign(design, towels)) result += 1;
     }
 
     return result;
 }
 
-fn FindNextTowel(design: Design, towels: []Towel) u64 {
-    var candidates = std.BoundedArray([]u8, 1000).init();
+fn MakeDesign(design: Design, towels: []Towel) bool {
     var curLen: usize = 1;
+    if (design.len == 0) return true;
     var target = design[0..curLen];
 
     while (target.len > 0) {
-        print("Target: {s}\n", .{target});
         for (towels) |towel| {
             if (std.mem.eql(u8, towel, target)) {
-                print("Match: {s}\n", .{towel});
-                return towel.len;
+                if (MakeDesign(design[towel.len..], towels)) {
+                    return true;
+                }
             }
         }
         curLen += 1;
@@ -74,7 +64,7 @@ fn FindNextTowel(design: Design, towels: []Towel) u64 {
         target = design[0..curLen];
     }
 
-    return 0;
+    return false;
 }
 
 fn p2() !u64 {
