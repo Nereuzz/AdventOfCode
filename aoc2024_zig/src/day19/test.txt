@@ -1,0 +1,11 @@
+r, wr, b, g, bwu, rb, gb, br, rrg, aab, aa, bc
+
+brwrr
+bggr
+gbbr
+rrbgbr
+ubwu
+bwurrg
+brgr
+bbrgwb
+aabc
