@@ -21,21 +21,15 @@ def solve2(start, input)
 
     dialUnmapped = move(n, direction, steps)
     wraps = (dialUnmapped / 100).abs
+    newN = dialUnmapped % 100
 
-    if n == 0 and direction == 'L'
-      wraps -= 1
-    end
-
-    if dialUnmapped % 100 == 0 and direction == 'R'
-      wraps -= 1
+    if direction == 'L'
+      wraps -= 1 if n == 0
+      result += 1 if newN == 0
     end
 
     result += wraps
-
-    n = dialUnmapped % 100
-    if n == 0
-      result += 1
-    end
+    n = newN
   end
   result
 end
@@ -46,16 +40,17 @@ end
 
 input = File.read("test.txt").split("\n")
 puts "Part 1: #{solve1(50, input)}"
-puts "debug: #{solve2(50, ["L50"]) == 1}"
-puts "debug: #{solve2(50, ["L150"]) == 2}"
-puts "debug: #{solve2(50, ["L151"]) == 2}"
-puts "debug: #{solve2(0, ["L1"]) == 0}"
-puts "debug: #{solve2(0, ["L100"]) == 1}"
-puts "debug: #{solve2(0, ["L101"]) == 1}"
-puts "debug: #{solve2(0, ["R1"]) == 0}"
-puts "debug: #{solve2(0, ["R100"]) == 1}"
-puts "debug: #{solve2(0, ["R101"]) == 1}"
-puts "debug: #{solve2(50, ["R50"]) == 1}"
-puts "debug: #{solve2(50, ["R150"]) == 2}"
-puts "debug: #{solve2(50, ["R151"]) == 2}"
-#puts "Part 2: #{solve2(50, input)}"
+puts "Part 2: #{solve2(50, input)}"
+
+#puts "debug: #{solve2(50, ["L50"]) == 1}"
+#puts "debug: #{solve2(50, ["L150"]) == 2}"
+#puts "debug: #{solve2(50, ["L151"]) == 2}"
+#puts "debug: #{solve2(0, ["L1"]) == 0}"
+#puts "debug: #{solve2(0, ["L100"]) == 1}"
+#puts "debug: #{solve2(0, ["L101"]) == 1}"
+#puts "debug: #{solve2(0, ["R1"]) == 0}"
+#puts "debug: #{solve2(0, ["R100"]) == 1}"
+#puts "debug: #{solve2(0, ["R101"]) == 1}"
+#puts "debug: #{solve2(50, ["R50"]) == 1}"
+#puts "debug: #{solve2(50, ["R150"]) == 2}"
+#puts "debug: #{solve2(50, ["R151"]) == 2}"
