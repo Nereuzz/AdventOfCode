@@ -8,10 +8,11 @@ def solve(input, part)
   cols = grid[0].length
   grid = grid.prepend(Array.new(cols, '.')).append(Array.new(cols, '.'))
 
-  return removeRolls(grid, rows, cols, part)[1] if part == 1
+  iterResult = removeRolls(grid, rows, cols, part)
+
+  return iterResult[1] if part == 1
 
   result = 0
-  iterResult = removeRolls(grid, rows, cols, part)
   result += iterResult[1]
   while iterResult[1] != 0
     iterResult = removeRolls(iterResult[0], rows, cols, part)
@@ -34,7 +35,7 @@ def removeRolls(grid, rows, cols, part)
 
       if paperRolls < 4
         result += 1
-        coordsToFix.append([row, col]) if part == 2
+        coordsToFix.append([row, col])
       end
 
     end
