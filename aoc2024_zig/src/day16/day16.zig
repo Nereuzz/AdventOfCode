@@ -32,7 +32,7 @@ const Point = struct {
     row: u64,
     col: u64,
     v: u8,
-    direction: Direction,
+    direction: ?Direction = null,
     fromDir: ?Direction = null,
 
     fn getCoord(self: Point) [2]u64 {
@@ -45,12 +45,7 @@ const Point = struct {
     }
 };
 
-const Direction = enum {
-    Up,
-    Right,
-    Down,
-    Left,
-};
+const Direction = enum { Up, Right, Down, Left };
 fn p1(grid: [][]u8, allocator: std.mem.Allocator) !u64 {
     var tree = std.ArrayList(Point).init(allocator);
     defer tree.deinit();
@@ -62,17 +57,14 @@ fn p1(grid: [][]u8, allocator: std.mem.Allocator) !u64 {
             point.row = rowIdx;
             point.col = colIdx;
             point.v = col;
+            point.fromDir = null;
             if (col == 'S') point.direction = Direction.Right;
+
             try tree.append(point);
         }
     }
 
-    const source: Point = .{
-        .row = grid.len - 2,
-        .col = 1,
-        .v = 'S',
-        .direction = Direction.Right,
-    };
+    const source: Point = .{ .row = grid.len - 2, .col = 1, .v = 'S', .direction = Direction.Right };
     return Dijkstra(grid, &tree, source, allocator);
 }
 
@@ -84,13 +76,9 @@ fn Dijkstra(grid: [][]u8, tree: *std.ArrayList(Point), source: Point, allocator:
     defer {
         distances.deinit();
 
-        // var prevIter = prevs.valueIterator();
-        // while (prevIter.next()) |item| {
-        //     // for (item.items) |p| allocator.destroy(p);
-        //     allocator.destroy(item);
-        // }
-
-        // prevs.clearAndFree();
+        var prevIter = prevs.valueIterator();
+        while (prevIter.next()) |item| item.deinit();
+        prevs.clearAndFree();
     }
 
     for (tree.items) |p| {
@@ -149,7 +137,10 @@ fn Dijkstra(grid: [][]u8, tree: *std.ArrayList(Point), source: Point, allocator:
         neighbours[1] = right;
 
         for (neighbours) |v| {
-            if (v.v == '#' or (u.fromDir == GetOppositeDirection(v.direction))) continue;
+            if (v.v == '#' or (u.fromDir == GetOppositeDirection(v.direction.?))) {
+                continue;
+            }
+
             const costToV = CostToV(u, v, distances);
             const oldDist = distances.get(v.getCoordAndDir()).?;
             const newDist = distances.get(u.getCoordAndDir()).? + costToV;
@@ -163,9 +154,9 @@ fn Dijkstra(grid: [][]u8, tree: *std.ArrayList(Point), source: Point, allocator:
                     try p.append(u);
                     try prevs.put(future.getCoordAndDir(), p);
                 }
-                future.direction = v.direction;
-                future.fromDir = v.direction;
-                try distances.put(v.getCoordAndDir(), newDist);
+                future.direction = v.direction.?;
+                future.fromDir = v.direction.?;
+                try distances.put(v.getCoord(), newDist);
                 grid[v.row][v.col] = '@';
                 // if (v.v == 'E') return distances.get([2]u64{ 1, grid[0].len - 2 }).?;
             }
@@ -175,15 +166,7 @@ fn Dijkstra(grid: [][]u8, tree: *std.ArrayList(Point), source: Point, allocator:
 
     // print("E prevs: {any}\n", .{prevs.get([3]u64{ 7, 5, 3 }).?.items});
 
-    var hest = [4]u64{
-        distances.get([3]u64{ 1, grid[0].len - 2, 0 }).?,
-        distances.get([3]u64{ 1, grid[0].len - 2, 1 }).?,
-        distances.get([3]u64{ 1, grid[0].len - 2, 2 }).?,
-        distances.get([3]u64{ 1, grid[0].len - 2, 3 }).?,
-    };
-    std.mem.sort(u64, &hest, {}, std.sort.asc(u64));
-
-    return hest[0];
+    return distances.get([2]u64{ 1, grid[0].len - 2 }).?;
 }
 
 fn GetOppositeDirection(d: Direction) Direction {
@@ -216,6 +199,6 @@ fn GetVertexIdx(tree: *std.ArrayList(Point), u: Point) u64 {
 
 fn CostToV(u: Point, v: Point, distances: distancesType) u64 {
     _ = distances;
-    if (u.direction == v.direction) return 1;
+    if (u.direction.? == v.direction.?) return 1;
     return 1001;
 }
